@@ -29,17 +29,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: sbulbul/AutomationCI-staging
-          token: ${{ secrets.STAGING_DEPLOY_TOKEN }}
-          path: staging
       - name: Publish dist/ to the staging repo
+        env:
+          STAGING_DEPLOY_TOKEN: ${{ secrets.STAGING_DEPLOY_TOKEN }}
         run: |
-          find staging -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -r dist/. staging/
-          touch staging/.nojekyll
+          git clone "https://x-access-token:${STAGING_DEPLOY_TOKEN}@github.com/sbulbul/AutomationCI-staging.git" staging
           cd staging
+          git checkout -B main
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r ../dist/. .
+          touch .nojekyll
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
