@@ -42,14 +42,14 @@ The site is a static, single-page marketing site (`dist/index.html`, two stylesh
 
 | ID | Item | Severity | Blocks |
 |----|------|----------|--------|
-| S1 | Served over HTTPS | Critical | live deploy |
+| S1 | Served over HTTPS | Critical | not tested in V1 (check removed on request) |
 | S2 | No secrets, tokens or private keys in `dist/` | Critical | merge |
 | S3 | External resources are limited to the known list (Google Fonts) | High | live deploy |
 | S4 | Security headers (CSP, X-Content-Type-Options) | Medium | warning only; GitHub Pages does not let us set headers, so this is a documented known limit |
 
 ### Known content issue (flagged, not a test failure)
 
-The contact address is the placeholder `hello@example.com`. A check will warn while it is `example.com` and fail the **live** deploy (not the merge), so it cannot go out unnoticed.
+The contact address is the placeholder `hello@example.com`. The check that would have blocked the live deploy on it was removed from V1 on request, so nothing currently stops it going out. Replace it before sharing the site.
 
 ## 3. Gate rules (draft)
 
