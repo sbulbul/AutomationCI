@@ -20,6 +20,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # only used to post the results comment
+      issues: write # only used to open a bug when the gate blocks
     steps:
       - uses: actions/checkout@v4
 
@@ -56,6 +57,13 @@ jobs:
           else
             echo "## QA gate: no result produced" | tee report.md >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # Same rule as the comment: forks get a read-only token, so skip them.
+      - name: Open a bug if blocked
+        if: failure() && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash qa/gate/open-bug.sh "PR #${{ github.event.pull_request.number }}" report.md
 
       # Comments need a write token, which pull requests from forks do not get.
       - name: Post results on the pull request
