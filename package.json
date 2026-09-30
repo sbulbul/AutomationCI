@@ -4,7 +4,8 @@
   "scripts": {
     "start": "http-server dist -p 8123 -c-1 -a 127.0.0.1",
     "test": "playwright test -c qa/001-site-release-gate",
-    "test:list": "playwright test -c qa/001-site-release-gate --list"
+    "test:list": "playwright test -c qa/001-site-release-gate --list",
+    "test:gate": "node --test qa/gate/gate.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
