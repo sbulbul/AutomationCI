@@ -2,6 +2,13 @@
   "name": "automationci-site",
   "private": true,
   "scripts": {
-    "start": "npx --yes http-server dist -p 8123 -c-1 -a 127.0.0.1"
+    "start": "http-server dist -p 8123 -c-1 -a 127.0.0.1",
+    "test": "playwright test -c qa/001-site-release-gate",
+    "test:list": "playwright test -c qa/001-site-release-gate --list"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "http-server": "^14.1.1",
+    "typescript": "^7.0.2"
   }
 }
