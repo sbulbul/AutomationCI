@@ -63,7 +63,9 @@ jobs:
         if: failure() && github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash qa/gate/open-bug.sh "PR #${{ github.event.pull_request.number }}" report.md
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        # No "#" in this line: in YAML, " #" starts a comment and truncates the command.
+        run: bash qa/gate/open-bug.sh "PR ${PR_NUMBER}" report.md
 
       # Comments need a write token, which pull requests from forks do not get.
       - name: Post results on the pull request
