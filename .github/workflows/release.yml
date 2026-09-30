@@ -1,5 +1,8 @@
 name: Release pipeline
 
+# Runs after a PR is merged to main:
+#   test (local build) -> deploy to staging -> test the staging URL -> human approval -> deploy live
+
 on:
   push:
     branches: [main]
@@ -12,20 +15,56 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+env:
+  STAGING_URL: https://sbulbul.github.io/AutomationCI-staging/
+
 jobs:
-  # STUB: replaced by the real test run + gate in a later step.
-  gate:
+  # 1. Same tests and gate as a pull request, against the local build.
+  test-local:
     runs-on: ubuntu-latest
-    outputs:
-      decision: ${{ steps.decide.outputs.decision }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write # to open a bug when the gate blocks
     steps:
       - uses: actions/checkout@v4
-      - id: decide
-        run: echo "decision=PASS" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --test qa/gate/gate.test.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Run site tests
+        continue-on-error: true
+        run: npx playwright test -c qa/001-site-release-gate
+      - name: Gate decision
+        run: node qa/gate/gate.mjs --results test-results/results.json --mode pr --out gate-result.json
+      - name: Build report
+        if: always()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -f gate-result.json ]; then node qa/gate/report.mjs gate-result.json > report.md; else echo "## QA gate: no result produced" > report.md; fi
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Open a bug if blocked
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash qa/gate/open-bug.sh "local build" report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-local
+          path: |
+            test-results/
+            gate-result.json
+            report.md
+          retention-days: 14
 
+  # 2. Publish the exact same dist/ to the staging repo.
   deploy-staging:
-    needs: gate
-    if: needs.gate.outputs.decision == 'PASS'
+    needs: test-local
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,14 +88,72 @@ jobs:
             git push origin HEAD:main
           fi
 
-  # Human approval: this job waits for a reviewer on the `production` environment.
-  approve-production:
+  # 3. Run the suite against the real staging URL. Release mode is stricter: @release tests must run and pass.
+  verify-staging:
     needs: deploy-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # Pages takes a while to publish. Wait until staging serves exactly the file we built.
+      - name: Wait for staging to serve this build
+        run: |
+          expected=$(sha256sum dist/index.html | cut -d' ' -f1)
+          for i in $(seq 1 30); do
+            got=$(curl -fsSL "$STAGING_URL" | sha256sum | cut -d' ' -f1 || true)
+            if [ "$got" = "$expected" ]; then echo "Staging is serving this build"; exit 0; fi
+            echo "Waiting for staging ($i/30)..."; sleep 10
+          done
+          echo "Staging did not serve this build within 5 minutes"; exit 1
+
+      - name: Run site tests against staging
+        continue-on-error: true
+        env:
+          BASE_URL: ${{ env.STAGING_URL }}
+        run: npx playwright test -c qa/001-site-release-gate
+      - name: Gate decision (release mode)
+        run: node qa/gate/gate.mjs --results test-results/results.json --mode release --out gate-result.json
+      - name: Build report
+        if: always()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -f gate-result.json ]; then node qa/gate/report.mjs gate-result.json > report.md; else echo "## QA gate: no result produced" > report.md; fi
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Open a bug if blocked
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash qa/gate/open-bug.sh "staging" report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-staging
+          path: |
+            test-results/
+            gate-result.json
+            report.md
+          retention-days: 14
+
+  # 4. Human approval: waits for a reviewer on the `production` environment.
+  approve-production:
+    needs: verify-staging
     runs-on: ubuntu-latest
     environment: production
     steps:
       - run: echo "Approved for production (commit ${GITHUB_SHA})"
 
+  # 5. Deploy live, but only with a release-mode gate result for this exact commit.
   deploy-live:
     needs: approve-production
     runs-on: ubuntu-latest
@@ -69,6 +166,18 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-staging
+          path: staging-gate
+      - name: Require a valid release gate result for this commit
+        run: |
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('staging-gate/gate-result.json', 'utf8'));
+            const ok = r.sha === process.env.GITHUB_SHA && r.mode === 'release' && r.decision !== 'BLOCK';
+            console.log('gate result:', r.decision, r.mode, r.sha);
+            if (!ok) { console.error('Refusing to deploy: no passing release gate result for this commit'); process.exit(1); }
+          "
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
