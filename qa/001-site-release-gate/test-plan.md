@@ -262,34 +262,6 @@ Environment: every test uses `baseURL` from the `BASE_URL` env var (default: loc
 
 **Expected result:** every request origin is the site's own origin, `https://fonts.googleapis.com` or `https://fonts.gstatic.com` (and `data:` URLs); any other origin fails the test and is named in the message.
 
-### TC-14: Deployed URL is served over HTTPS
-**Story:** US-08
-**Type:** Security (lite)
-**Priority:** Release (`@release`)
-**Automate now?:** Yes (skipped on localhost with an explicit reason)
-**Preconditions:** `BASE_URL` points at a deployed site.
-
-**Steps:**
-1. Read the protocol of `BASE_URL`.
-2. Request the `http://` version of the same host.
-
-**Expected result:**
-- `BASE_URL` starts with `https://`.
-- The `http://` request either redirects to `https://` or is refused.
-- Skipped with reason "HTTPS is only verifiable on a deployed URL" when `BASE_URL` is a localhost address.
-
-### TC-15: Contact address is not the placeholder
-**Story:** US-08
-**Type:** UI (Validation)
-**Priority:** Release (`@release`)
-**Automate now?:** Yes
-**Preconditions:** Page loaded.
-
-**Steps:**
-1. Read the `mailto:` address in `#contact`.
-
-**Expected result:** the address's domain is not `example.com`. This test is **expected to be red until the address is replaced**; the gate treats it as blocking the live deploy only, not the merge.
-
 ---
 
 ## Coverage summary
@@ -303,7 +275,7 @@ Environment: every test uses `baseURL` from the `BASE_URL` env var (default: loc
 | US-05 | TC-08 | Yes |
 | US-06 | TC-09, TC-10, TC-11 | Yes |
 | US-07 | TC-12 | Yes |
-| US-08 | TC-13, TC-14, TC-15 | Yes |
+| US-08 | TC-13 | Yes |
 
 ## Out of scope / not automated
 
@@ -311,3 +283,4 @@ Environment: every test uses `baseURL` from the `BASE_URL` env var (default: loc
 - Visual regression: no baseline exists yet and animations make screenshots unstable.
 - Cross-browser: V1 runs Chromium only.
 - API, form validation, authentication: the site has none.
+- HTTPS check on deployed URLs (was TC-14) and placeholder contact address check (was TC-15): removed from V1 on request. Until they are re-added, nothing verifies HTTPS or blocks a live deploy with `hello@example.com`.

@@ -74,14 +74,14 @@ As a visitor on a phone, a desktop or with assistive technology, I want the page
 
 ## Release (blocks the live deploy, not the merge)
 
-### US-08: Deployed site is secure and uses a real contact address
-**Source:** requirements S1, S3, and the "Known content issue"
-As the site owner, I want the deployed site served over HTTPS, loading only known third parties and showing a real contact address, so that nothing unfinished or unexpected goes live.
+### US-08: Deployed site loads only known third parties
+**Source:** requirements S3
+As the site owner, I want the site to load resources only from known origins, so that no unexpected third party can track visitors or inject content.
 
 **Acceptance criteria:**
-- On a deployed URL (staging or live) the page is served over HTTPS
 - The page only loads resources from its own origin, `fonts.googleapis.com` and `fonts.gstatic.com`
-- The contact `mailto:` address is not on `example.com`
+
+_Removed from V1 on request: HTTPS on deployed URLs (S1) and the placeholder contact address check. See `test-plan.md`, "Out of scope"._
 
 ---
 
